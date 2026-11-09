@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>استمارة معلومات الطلاب - EMIS</title>
+<style>
+  :root {
+    --bg: #f3f5f9; --card: #ffffff; --ink: #1c2430; --muted: #657084;
+    --line: #d9dfea; --brand: #1f5fbf; --brand-d: #174a96; --danger: #c0392b;
+    --ok: #1e8a4c; --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Segoe UI", Tahoma, "Noto Naskh Arabic", Arial, sans-serif;
+    font-size: 15px; line-height: 1.5;
+  }
+  header {
+    background: var(--brand); color: #fff; padding: 14px 20px;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+    position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 6px rgba(0,0,0,.15);
+  }
+  header h1 { margin: 0; font-size: 18px; font-weight: 700; }
+  nav { display: flex; gap: 6px; }
+  nav button {
+    background: rgba(255,255,255,.15); color: #fff; border: 0; border-radius: 8px;
+    padding: 8px 16px; font: inherit; cursor: pointer;
+  }
+  nav button.active { background: #fff; color: var(--brand); font-weight: 700; }
+  nav button.lang-btn { background: transparent; border: 1px solid rgba(255,255,255,.65); }
+  main { max-width: 1000px; margin: 20px auto; padding: 0 14px 60px; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  fieldset {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    margin: 0 0 16px; padding: 14px 16px 16px;
+  }
+  legend { padding: 0 8px; font-weight: 700; color: var(--brand-d); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field.wide { grid-column: 1 / -1; }
+  .sub {
+    grid-column: 1 / -1; font-weight: 700; color: var(--brand-d); font-size: 14px;
+    border-bottom: 1px dashed var(--line); padding-bottom: 2px; margin-top: 4px;
+  }
+  label { font-size: 13px; color: var(--muted); }
+  label .req { color: var(--danger); }
+  input, select {
+    font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+    background: #fff; color: var(--ink); width: 100%;
+  }
+  input.ltr { direction: ltr; text-align: right; }
+  input:focus, select:focus { outline: 2px solid var(--brand); outline-offset: 0; border-color: var(--brand); }
+  .invalid { border-color: var(--danger) !important; background: #fff6f5; }
+
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 6px 0 0; }
+  button.btn {
+    font: inherit; padding: 9px 18px; border-radius: 8px; border: 1px solid var(--brand);
+    background: var(--brand); color: #fff; cursor: pointer;
+  }
+  button.btn:hover { background: var(--brand-d); }
+  button.btn.ghost { background: #fff; color: var(--brand); }
+  button.btn.ghost:hover { background: #eef3fb; }
+  button.btn.danger { background: #fff; color: var(--danger); border-color: var(--danger); }
+  button.btn.danger:hover { background: #fdeceb; }
+  button.btn.small { padding: 4px 10px; font-size: 13px; }
+
+  .banner {
+    background: #fff7e0; border: 1px solid #f0d98a; color: #6b5400;
+    border-radius: 8px; padding: 8px 12px; margin-bottom: 14px; display: none;
+  }
+  .banner.show { display: block; }
+
+  .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  .toolbar input[type=search] { max-width: 320px; }
+  .toolbar .spacer { flex: 1; }
+  .count { color: var(--muted); font-size: 13px; }
+
+  .table-wrap { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 9px 12px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { background: #eef2f8; font-size: 13px; color: var(--muted); }
+  tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: #f7f9fd; }
+  td.name-link { color: var(--brand); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+  td.ltr { direction: ltr; text-align: right; }
+  .empty { padding: 30px; text-align: center; color: var(--muted); }
+  .note { color: var(--muted); font-size: 12.5px; margin-top: 14px; }
+
+  #toast {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--ok); color: #fff; padding: 10px 20px; border-radius: 8px;
+    opacity: 0; transition: .25s; pointer-events: none; z-index: 50;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.err { background: var(--danger); }
+
+  @media (max-width: 640px) {
+    .grid { grid-template-columns: 1fr; }
+    header h1 { font-size: 16px; }
+  }
+
+  /* ================= الاستمارة المطبوعة (نفس شكل الاستمارة الورقية) ================= */
+  #printArea { display: none; }
+  #printArea { font-family: "Segoe UI", Tahoma, Arial, sans-serif; color: #000; }
+  #printArea .page { width: 100%; height: 283mm; overflow: hidden; break-inside: avoid; break-after: page; page-break-after: always; }
+  #printArea .page:last-child { break-after: auto; page-break-after: auto; }
+  #printArea .frm { border-top: 1.3px solid #000; border-right: 1.3px solid #000; height: 100%; display: flex; flex-direction: column; }
+  #printArea .frm > .r { flex: 1 1 auto; }
+  #printArea .frm > .r > div:not(.c) { display: flex; flex-direction: column; }
+  #printArea .frm > .r > div:not(.c) > .r { flex: 1 1 auto; }
+  #printArea .r { display: grid; }
+  #printArea .c {
+    border-left: 1.3px solid #000; border-bottom: 1.3px solid #000;
+    padding: .6mm 1.6mm; display: flex; align-items: center; min-height: 6.2mm;
+    font-size: 9.5pt; line-height: 1.25; overflow-wrap: anywhere;
+  }
+  #printArea .lab { font-weight: 600; justify-content: flex-start; }
+  #printArea .st { margin-inline-start: 1.2mm; }
+  #printArea .fix { font-weight: 500; justify-content: flex-start; }
+  #printArea .val { min-height: 7.2mm; font-weight: 700; font-size: 10.5pt; justify-content: flex-start; }
+  #printArea .ltr { direction: ltr; justify-content: flex-end; }
+  #printArea .sec { font-weight: 700; font-size: 11.5pt; min-height: 6.6mm; justify-content: flex-start; }
+  #printArea .subsec { font-weight: 600; font-size: 10pt; min-height: 5.6mm; }
+  #printArea .title { justify-content: center; font-weight: 700; font-size: 13pt; min-height: 8.5mm; }
+  #printArea .photo { justify-content: center; align-items: center; padding: 0; min-height: 37mm; overflow: visible; color: #8a8a8a; font-size: 10pt; }
+  #printArea .photo img { width: 25mm; height: 35mm; min-width: 25mm; min-height: 35mm; flex: none; object-fit: cover; display: block; margin: auto; }
+  #printArea .pbox { width: 25mm; height: 35mm; border: .3mm dashed #999; display: flex; align-items: center; justify-content: center; }
+  #printArea .opt { justify-content: space-between; gap: 2mm; font-weight: 600; font-size: 10pt; }
+  #printArea .ring {
+    width: 4.4mm; height: 4.4mm; border: 1.3px solid #000; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-style: normal; font-size: 10pt; line-height: 1; flex: none;
+  }
+  #printArea .ring.on { border-width: 2.4px; font-weight: 900; }
+
+  @page { size: A4; margin: 7mm; }
+
+  .pv-overlay { position: fixed; inset: 0; background: rgba(15,25,40,.55); z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
+  .pv-box { background: var(--card); width: 100%; max-width: 760px; max-height: 92vh; display: flex; flex-direction: column; border-radius: 14px 14px 0 0; box-shadow: 0 -4px 24px rgba(0,0,0,.25); }
+  @media (min-width: 700px) { .pv-overlay { align-items: center; } .pv-box { border-radius: 14px; } }
+  .pv-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .pv-head h2 { margin: 0; font-size: 17px; color: var(--brand-d); flex: 1; }
+  .pv-no { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .pv-body { overflow-y: auto; padding: 6px 18px 12px; }
+  .pv-sec h3 { margin: 14px 0 8px; font-size: 14px; color: var(--brand-d); border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+  .pv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
+  .pv-sub { grid-column: 1 / -1; font-weight: 700; font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .pv-item { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .pv-k { font-size: 12px; color: var(--muted); }
+  .pv-v { font-size: 14px; overflow-wrap: anywhere; }
+  .pv-v.empty { color: #aab2c0; }
+  .pv-foot { display: flex; gap: 8px; padding: 12px 18px calc(12px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); }
+  @media (max-width: 520px) { .pv-grid { grid-template-columns: 1fr; } }
+  .photo-row { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  .photo-box { width: 2.5cm; height: 3.5cm; border: 1px dashed var(--line); border-radius: 6px; background: #fafbfd; display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--muted); font-size: 12px; text-align: center; flex: none; }
+  .photo-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-side { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; max-width: 320px; }
+  .photo-hint { font-size: 12px; color: var(--muted); }
+  .pv-photo { width: 52px; aspect-ratio: 25 / 35; object-fit: cover; border-radius: 4px; border: 1px solid var(--line); flex: none; }
+  @media print {
+    #preview { display: none !important; }
+    body { background: #fff; }
+    body > *:not(#printArea) { display: none !important; }
+    #printArea { display: block; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>استمارة معلومات الطلاب لنظام EMIS</h1>
+  <nav>
+    <button id="tab-form" class="active" data-tab="form">إدخال البيانات</button>
+    <button id="tab-list" data-tab="list"><span id="tabListLabel">السجلات</span> (<span id="navCount">0</span>)</button>
+    <button id="btnLang" type="button" class="lang-btn"></button>
+  </nav>
+</header>
+
+<main>
+  <!-- ========== تبويب الإدخال ========== -->
+  <section id="panel-form" class="panel active">
+    <div id="editBanner" class="banner"></div>
+    <form id="studentForm" novalidate autocomplete="off"></form>
+    <div class="actions">
+      <button type="button" class="btn" id="btnSave">حفظ البيانات</button>
+      <button type="button" class="btn ghost" id="btnPrintForm">طباعة الاستمارة (PDF)</button>
+      <button type="button" class="btn ghost" id="btnNew">سجل جديد / مسح الحقول</button>
+    </div>
+    <p class="note">تُحفظ البيانات داخل متصفح Chrome على هذا الجهاز فقط. خذ نسخة احتياطية دورية من تبويب «السجلات». لحفظ الاستمارة كملف PDF اختر «حفظ بتنسيق PDF» في نافذة الطباعة.</p>
+  </section>
+
+  <!-- ========== تبويب السجلات ========== -->
+  <section id="panel-list" class="panel">
+    <div class="toolbar">
+      <input type="search" id="search" placeholder="بحث بالاسم أو الهاتف أو الرقم الإحصائي أو رقم البطاقة...">
+      <span class="count" id="countLabel"></span>
+      <span class="spacer"></span>
+      <button class="btn" id="btnPrintAll">طباعة الاستمارات (PDF)</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>#</th><th>الاسم الكامل</th><th>الصف</th><th>الشعبة</th><th>الهاتف</th><th>إجراءات</th></tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div id="emptyMsg" class="empty" hidden>لا توجد سجلات.</div>
+    </div>
+  </section>
+</main>
+
+<div id="toast"></div>
+<div id="printArea" dir="rtl" aria-hidden="true"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  const STORAGE_KEY = "emis_students_v1";
+
+  // ---------- اللغة (واجهة عربية / كوردية) ----------
+  // الترجمة للواجهة فقط؛ البيانات المحفوظة والاستمارة المطبوعة تبقى بالعربية دائماً.
+  const LANG_KEY = "emis_lang";
+  let lang = "ar";
+  try { lang = localStorage.getItem(LANG_KEY) === "ku" ? "ku" : "ar"; } catch (e) {}
+  const KU = {
+    "استمارة معلومات الطلاب لنظام EMIS": "فۆڕمی زانیاری قوتابیان بۆ سیستەمی EMIS",
+    "إدخال البيانات": "تۆمارکردنی زانیاری",
+    "السجلات": "تۆمارەکان",
+    "حفظ البيانات": "پاشەکەوتکردنی زانیاری",
+    "حفظ التعديلات": "پاشەکەوتکردنی دەستکاریەکان",
+    "طباعة الاستمارة (PDF)": "چاپکردنی فۆڕم (PDF)",
+    "سجل جديد / مسح الحقول": "تۆماری نوێ / پاککردنەوەی خانەکان",
+    "تُحفظ البيانات داخل متصفح Chrome على هذا الجهاز فقط. خذ نسخة احتياطية دورية من تبويب «السجلات». لحفظ الاستمارة كملف PDF اختر «حفظ بتنسيق PDF» في نافذة الطباعة.":
+      "زانیارییەکان تەنها لە ناو وێبگەڕی Chrome لەسەر ئەم ئامێرە پاشەکەوت دەکرێن. بە شێوەی خولی کۆپییەکی یەدەگ لە بەشی «تۆمارەکان» وەربگرە. بۆ پاشەکەوتکردنی فۆڕمەکە وەک PDF لە پەنجەرەی چاپکردن «Save as PDF» هەڵبژێرە.",
+    "بحث بالاسم أو الهاتف أو الرقم الإحصائي أو رقم البطاقة...": "گەڕان بە ناو یان تەلەفۆن یان ژمارەی ئامار یان ژمارەی کارت...",
+    "طباعة الاستمارات (PDF)": "چاپکردنی فۆڕمەکان (PDF)",
+    "الاسم الكامل": "ناوی تەواو",
+    "الصف": "پۆل",
+    "الشعبة": "لق",
+    "الهاتف": "تەلەفۆن",
+    "إجراءات": "کردارەکان",
+    "لا توجد سجلات.": "هیچ تۆمارێک نییە.",
+    "معاينة": "پیشاندان",
+    "تعديل": "دەستکاری",
+    "استمارة": "فۆڕم",
+    "حذف": "سڕینەوە",
+    "إغلاق": "داخستن",
+    "طالب": "قوتابی",
+    "اضغط لتعديل البيانات": "کلیک بکە بۆ دەستکاریکردنی زانیاری",
+    "اختيار صورة": "هەڵبژاردنی وێنە",
+    "حذف الصورة": "سڕینەوەی وێنە",
+    "لا توجد صورة": "وێنە نییە",
+    "— اختر —": "— هەڵبژێرە —",
+    "صورة الطالب (2.5 × 3.5 سم)": "وێنەی قوتابی (2.5 × 3.5 سم)",
+    // رسائل
+    "تعذر الحفظ في المتصفح (قد تكون المساحة ممتلئة أو التخزين معطّل).": "پاشەکەوتکردن نەکرا (لەوانەیە شوێن پڕ بێت یان هەڵگرتن ناچالاک بێت).",
+    "الملف المختار ليس صورة.": "فایلی هەڵبژێردراو وێنە نییە.",
+    "تعذّرت قراءة الصورة.": "خوێندنەوەی وێنەکە نەکرا.",
+    "الرجاء تعبئة الحقول المطلوبة (*)": "تکایە خانە پێویستەکان پڕ بکەرەوە (*)",
+    "تم حفظ بيانات الطالب بنجاح! يمكنك الآن التعديل عليها.": "زانیاری قوتابی بە سەرکەوتوویی پاشەکەوت کرا! ئێستا دەتوانیت دەستکاری بکەیت.",
+    "السجل غير موجود.": "تۆمارەکە نەدۆزرایەوە.",
+    "تم تعديل بيانات الطالب بنجاح!": "زانیاری قوتابی بە سەرکەوتوویی دەستکاری کرا!",
+    "تم الحذف.": "سڕایەوە.",
+    "لا توجد سجلات للطباعة.": "هیچ تۆمارێک نییە بۆ چاپکردن.",
+    // أقسام
+    "1. اسم الطالب الرباعي واللقب والمعلومات الأساسية": "1. ناوی چواریی قوتابی و نازناو و زانیاری بنەڕەتی",
+    "2. وثيقة التعريف الخاصة بالطالب": "2. بەڵگەنامەی ناسنامەی قوتابی",
+    "3. وثيقة التعريف / هوية الأب": "3. بەڵگەنامەی ناسنامە / ناسنامەی باوک",
+    "4. التفاصيل الشخصية والأكاديمية": "4. وردەکاری کەسی و ئەکادیمی",
+    "5. معلومات السكن والعنوان": "5. زانیاری شوێنی نیشتەجێبوون و ناونیشان",
+    "هوية الأحوال المدنية — تفاصيل جهة الأحوال المدنية": "ناسنامەی باری شارستانی — وردەکاری لایەنی باری شارستانی",
+    "هوية الأحوال المدنية — تفاصيل جهة الأحوال المدنية (إسم الأب)": "ناسنامەی باری شارستانی — وردەکاری لایەنی باری شارستانی (ناوی باوک)",
+    "البطاقة الوطنية الموحدة": "کارتی نیشتمانی یەکگرتوو",
+    // حقول
+    "الإسم": "ناو",
+    "إسم الأب": "ناوی باوک",
+    "اسم والد الأب": "ناوی باوکی باوک",
+    "اسم جد الأب": "ناوی باپیری باوک",
+    "اللقب": "نازناو",
+    "إسم الأم": "ناوی دایک",
+    "اسم والد الأم": "ناوی باوکی دایک",
+    "اسم جد الأم": "ناوی باپیری دایک",
+    "تاريخ التولّد": "بەرواری لەدایکبوون",
+    "دولة محل الولادة": "وڵاتی شوێنی لەدایکبوون",
+    "بلد الإصدار": "وڵاتی دەرچوون",
+    "رقم جهة الأحوال المدنية": "ژمارەی لایەنی باری شارستانی",
+    "رقم السجل": "ژمارەی تۆمار",
+    "رقم الصحيفة": "ژمارەی پەڕە",
+    "جهة الإصدار": "لایەنی دەرچوون",
+    "رقم البطاقة الوطنية الموحدة": "ژمارەی کارتی نیشتمانی یەکگرتوو",
+    "الرقم الإحصائي": "ژمارەی ئامار",
+    "مسقط الراس": "شوێنی لەدایکبوون",
+    "الجنسية": "ڕەگەزنامە",
+    "الجنس": "ڕەگەز",
+    "اللغة الأم": "زمانی دایک",
+    "فئة الدم": "گرووپی خوێن",
+    "الديانة": "ئایین",
+    "رقم الهاتف": "ژمارەی تەلەفۆن",
+    "الاحتياجات الخاصة، إن وجدت": "پێداویستی تایبەت، ئەگەر هەبێت",
+    "لغة الدراسة": "زمانی خوێندن",
+    "المستوى المعيشي": "ئاستی گوزەران",
+    "مشمول بمنحة الرعاية الاجتماعية؟": "ئایا سوودمەندی بەخششی چاودێری کۆمەڵایەتییە؟",
+    "الصف الدراسي": "پۆلی خوێندن",
+    "المكان": "شوێن",
+    "المدينة أو القرية": "شار یان گوند",
+    "الحي / الناحية": "گەڕەک / ناحیە",
+    "المحلة": "مەحەللە",
+    "الزقاق": "کۆڵان",
+    "أقرب نقطة دالة": "نزیکترین شوێنی ناسراو",
+    "العنوان": "ناونیشان",
+    "البريد الإلكتروني": "ئیمەیڵ",
+    // خيارات
+    "ذكر": "نێر",
+    "أنثى": "مێ",
+    "نعم": "بەڵێ",
+    "لا": "نەخێر",
+    "الطبقة العليا": "چینی بەرز",
+    "الطبقة الوسطى": "چینی ناوەند",
+    "طبقة تحت خط الفقر": "چینی ژێر هێڵی هەژاری",
+    "الطبقة الفقيرة": "چینی هەژار"
+  };
+  const T = s => (lang === "ku" && KU[s]) || s;
+
+  // تاريخ بصيغة سنة-شهر-يوم مع صفر للأرقام المفردة، مثل 2017-05-24
+  function normDate(v) {
+    const m = String(v || "").trim().match(/^(\d{4})\D+(\d{1,2})\D+(\d{1,2})$/);
+    return m ? `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}` : String(v || "").trim();
+  }
+
+  // f(key, label, type, opts)  — type: text | select | date | tel | email
+  const f = (key, label, type = "text", opts = {}) => ({ key, label, type, ...opts });
+  // عنوان فرعي داخل القسم (+ بادئة لعناوين أعمدة CSV)
+  const H = (heading, csvPrefix = "") => ({ heading, csvPrefix });
+
+  const SECTIONS = [
+    { title: "1. اسم الطالب الرباعي واللقب والمعلومات الأساسية", fields: [
+      f("first_name", "الإسم", "text", { required: true }),
+      f("father_name", "إسم الأب", "text", { required: true }),
+      f("grandfather_name", "اسم والد الأب", "text", { required: true }),
+      f("great_grandfather_name", "اسم جد الأب", "text", { required: true }),
+      f("surname", "اللقب", "text", { required: true }),
+      f("mother_first_name", "إسم الأم"),
+      f("mother_father_name", "اسم والد الأم"),
+      f("mother_grandfather_name", "اسم جد الأم"),
+      f("birth_date", "تاريخ التولّد", "text", { ltr: true, placeholder: "2017-05-24" }),
+      f("birth_country", "دولة محل الولادة", "text", { def: "العراق" }),
+    ]},
+    { title: "2. وثيقة التعريف الخاصة بالطالب", fields: [
+      H("هوية الأحوال المدنية — تفاصيل جهة الأحوال المدنية", "الطالب - الأحوال المدنية - "),
+      f("id_country", "بلد الإصدار", "text", { def: "العراق" }),
+      f("id_civil_no", "رقم جهة الأحوال المدنية", "text", { ltr: true }),
+      f("id_record_no", "رقم السجل", "text", { ltr: true }),
+      f("id_page_no", "رقم الصحيفة", "text", { ltr: true }),
+      f("id_issuer", "جهة الإصدار"),
+      H("البطاقة الوطنية الموحدة", "الطالب - البطاقة الوطنية - "),
+      f("national_id_country", "بلد الإصدار", "text", { def: "العراق" }),
+      f("national_id_no", "رقم البطاقة الوطنية الموحدة", "text", { ltr: true }),
+    ]},
+    { title: "3. وثيقة التعريف / هوية الأب", fields: [
+      H("هوية الأحوال المدنية — تفاصيل جهة الأحوال المدنية (إسم الأب)", "الأب - الأحوال المدنية - "),
+      f("father_id_country", "بلد الإصدار", "text", { def: "العراق" }),
+      f("father_id_civil_no", "رقم جهة الأحوال المدنية", "text", { ltr: true }),
+      f("father_id_record_no", "رقم السجل", "text", { ltr: true }),
+      f("father_id_page_no", "رقم الصحيفة", "text", { ltr: true }),
+      f("father_id_issuer", "جهة الإصدار"),
+      H("البطاقة الوطنية الموحدة", "الأب - البطاقة الوطنية - "),
+      f("father_national_id_country", "بلد الإصدار", "text", { def: "العراق" }),
+      f("father_national_id_no", "رقم البطاقة الوطنية الموحدة", "text", { ltr: true }),
+    ]},
+    { title: "4. التفاصيل الشخصية والأكاديمية", fields: [
+      f("stat_no", "الرقم الإحصائي", "text", { ltr: true }),
+      f("birth_place", "مسقط الراس"),
+      f("nationality", "الجنسية", "text", { def: "عراقي" }),
+      f("gender", "الجنس", "select", { options: ["ذكر", "أنثى"] }),
+      f("mother_language", "اللغة الأم", "text", { def: "كوردى" }),
+      f("blood_type", "فئة الدم", "select", { options: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] }),
+      f("religion", "الديانة"),
+      f("phone", "رقم الهاتف", "tel", { ltr: true }),
+      f("special_needs", "الاحتياجات الخاصة، إن وجدت", "text", { def: "لا يوجد" }),
+      f("study_language", "لغة الدراسة", "text", { def: "كوردى" }),
+      f("living_level", "المستوى المعيشي", "select", { options: ["الطبقة العليا", "الطبقة الوسطى", "طبقة تحت خط الفقر", "الطبقة الفقيرة"] }),
+      f("social_welfare", "مشمول بمنحة الرعاية الاجتماعية؟", "select", { options: ["نعم", "لا"] }),
+      f("grade", "الصف الدراسي", "text", { def: "پۆلی چوارەمی بنەڕەتی" }),
+      f("section", "الشعبة"),
+    ]},
+    { title: "5. معلومات السكن والعنوان", fields: [
+      f("location", "المكان"),
+      f("city_village", "المدينة أو القرية"),
+      f("district", "الحي / الناحية"),
+      f("subdistrict_neighborhood", "المحلة"),
+      f("alley", "الزقاق"),
+      f("nearest_landmark", "أقرب نقطة دالة"),
+      f("address", "العنوان", "text", { wide: true }),
+      f("email", "البريد الإلكتروني", "email", { wide: true, ltr: true }),
+    ]},
+  ];
+
+  const ALL_FIELDS = [];
+  SECTIONS.forEach(sec => {
+    let prefix = "";
+    sec.fields.forEach(fl => {
+      if (fl.heading !== undefined) { prefix = fl.csvPrefix; return; }
+      ALL_FIELDS.push({ ...fl, csvLabel: prefix + fl.label });
+    });
+  });
+  const KEYS = ALL_FIELDS.map(x => x.key);
+
+  const $ = (sel) => document.querySelector(sel);
+  const form = $("#studentForm");
+  const inputs = {};          // key -> element
+  let records = loadRecords();
+  let editingId = null;
+  let photoData = "";          // صورة الطالب (JPEG بصيغة data URL)
+
+  // ---------- التخزين ----------
+  function loadRecords() {
+    try {
+      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      return Array.isArray(data) ? data : [];
+    } catch (e) { return []; }
+  }
+  function persist() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); return true; }
+    catch (e) { toast("تعذر الحفظ في المتصفح (قد تكون المساحة ممتلئة أو التخزين معطّل).", true); return false; }
+  }
+  const nextId = () => records.reduce((m, r) => Math.max(m, r.id || 0), 0) + 1;
+
+  // ---------- بناء النموذج ----------
+  function renderPhoto() {
+    const box = $("#photoBox"); if (!box) return;
+    box.textContent = "";
+    if (photoData) {
+      const im = document.createElement("img"); im.src = photoData; im.alt = "صورة الطالب"; box.appendChild(im);
+    } else {
+      const sp = document.createElement("span"); sp.dataset.ar = "لا توجد صورة"; sp.textContent = T("لا توجد صورة"); box.appendChild(sp);
+    }
+    $("#btnPhotoClear").hidden = !photoData;
+  }
+  function setPhotoFromFile(file) {
+    if (!file || !/^image\//.test(file.type)) { toast("الملف المختار ليس صورة.", true); return; }
+    const rd = new FileReader();
+    rd.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const W = 500, H = 700;                         // نسبة 2.5 × 3.5 سم
+        const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+        const ctx = cv.getContext("2d");
+        ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H);
+        const k = Math.max(W / img.width, H / img.height), w = img.width * k, h = img.height * k;
+        ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h);   // قصّ من المنتصف
+        photoData = cv.toDataURL("image/jpeg", 0.85);
+        renderPhoto();
+      };
+      img.onerror = () => toast("تعذّرت قراءة الصورة.", true);
+      img.src = rd.result;
+    };
+    rd.onerror = () => toast("تعذّرت قراءة الصورة.", true);
+    rd.readAsDataURL(file);
+  }
+  function buildPhotoField() {
+    const fs = document.createElement("fieldset");
+    const lg = document.createElement("legend"); lg.dataset.ar = "صورة الطالب (2.5 × 3.5 سم)"; lg.textContent = T(lg.dataset.ar); fs.appendChild(lg);
+    const row = document.createElement("div"); row.className = "photo-row";
+    const box = document.createElement("div"); box.id = "photoBox"; box.className = "photo-box";
+    const side = document.createElement("div"); side.className = "photo-side";
+    const pick = document.createElement("button"); pick.type = "button"; pick.className = "btn ghost small"; pick.dataset.ar = "اختيار صورة"; pick.textContent = T("اختيار صورة");
+    const clr = document.createElement("button"); clr.type = "button"; clr.id = "btnPhotoClear"; clr.className = "btn danger small"; clr.dataset.ar = "حذف الصورة"; clr.textContent = T("حذف الصورة");
+    const file = document.createElement("input"); file.type = "file"; file.accept = "image/*"; file.hidden = true;
+    pick.addEventListener("click", () => file.click());
+    clr.addEventListener("click", () => { photoData = ""; renderPhoto(); });
+    file.addEventListener("change", e => { setPhotoFromFile(e.target.files[0]); e.target.value = ""; });
+    side.append(pick, clr, file);
+    row.append(box, side); fs.appendChild(row); form.appendChild(fs);
+  }
+
+  function buildForm() {
+    buildPhotoField();
+    SECTIONS.forEach(sec => {
+      const fs = document.createElement("fieldset");
+      const lg = document.createElement("legend");
+      lg.dataset.ar = sec.title; lg.textContent = T(sec.title);
+      fs.appendChild(lg);
+      const grid = document.createElement("div");
+      grid.className = "grid";
+
+      sec.fields.forEach(fl => {
+        if (fl.heading !== undefined) {
+          const h = document.createElement("div");
+          h.className = "sub"; h.dataset.ar = fl.heading; h.textContent = T(fl.heading);
+          grid.appendChild(h);
+          return;
+        }
+        const wrap = document.createElement("div");
+        wrap.className = "field" + (fl.wide ? " wide" : "");
+        const id = "f_" + fl.key;
+
+        const lab = document.createElement("label");
+        lab.htmlFor = id;
+        const lt = document.createElement("span"); lt.dataset.ar = fl.label; lt.textContent = T(fl.label); lab.appendChild(lt);
+        if (fl.required) {
+          const star = document.createElement("span");
+          star.className = "req"; star.textContent = " *";
+          lab.appendChild(star);
+        }
+
+        let el;
+        if (fl.type === "select") {
+          el = document.createElement("select");
+          { const o0 = new Option(T("— اختر —"), ""); o0.dataset.ar = "— اختر —"; el.appendChild(o0); }
+          fl.options.forEach(o => { const op = new Option(T(o), o); op.dataset.ar = o; el.appendChild(op); });
+        } else {
+          el = document.createElement("input");
+          el.type = fl.type;
+          if (fl.ltr) el.classList.add("ltr");
+          if (fl.type === "tel") el.inputMode = "tel";
+          if (fl.placeholder) el.placeholder = fl.placeholder;
+          if (fl.key === "birth_date") el.addEventListener("blur", () => { el.value = normDate(el.value); });
+        }
+        el.id = id; el.name = fl.key;
+        el.addEventListener("input", () => el.classList.remove("invalid"));
+        inputs[fl.key] = el;
+
+        wrap.append(lab, el);
+        grid.appendChild(wrap);
+      });
+
+      fs.appendChild(grid);
+      form.appendChild(fs);
+    });
+    resetForm();
+  }
+
+  function setSaveBtn(editing) {
+    const b = $("#btnSave");
+    b.dataset.ar = editing ? "حفظ التعديلات" : "حفظ البيانات";
+    b.textContent = T(b.dataset.ar);
+  }
+  function setBanner(r) {
+    const b = $("#editBanner");
+    b.textContent = lang === "ku"
+      ? `تۆماری ژمارە ${r.id} دەستکاری دەکەیت: ${fullName(r)}`
+      : `أنت تعدّل السجل رقم ${r.id}: ${fullName(r)}`;
+    b.classList.add("show");
+  }
+
+  function resetForm() {
+    editingId = null;
+    photoData = ""; renderPhoto();
+    ALL_FIELDS.forEach(fl => {
+      inputs[fl.key].value = fl.def || "";
+      inputs[fl.key].classList.remove("invalid");
+    });
+    setSaveBtn(false);
+    $("#editBanner").classList.remove("show");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function collect() {
+    const obj = {};
+    ALL_FIELDS.forEach(fl => { const v = inputs[fl.key].value.trim(); obj[fl.key] = fl.key === "birth_date" ? normDate(v) : v; });
+    obj.photo = photoData;
+    return obj;
+  }
+
+  function validate(vals) {
+    let first = null;
+    ALL_FIELDS.filter(fl => fl.required).forEach(fl => {
+      if (!vals[fl.key]) {
+        inputs[fl.key].classList.add("invalid");
+        if (!first) first = inputs[fl.key];
+      }
+    });
+    if (first) {
+      toast("الرجاء تعبئة الحقول المطلوبة (*)", true);
+      first.focus();
+      return false;
+    }
+    return true;
+  }
+
+  function save() {
+    const vals = collect();
+    if (!validate(vals)) return;
+    if (editingId === null) {
+      records.push({ id: nextId(), ...vals });
+      if (!persist()) { records.pop(); return; }
+      toast("تم حفظ بيانات الطالب بنجاح! يمكنك الآن التعديل عليها.");
+      renderList();
+      startEdit(records[records.length - 1].id, true);
+      return;
+    } else {
+      const i = records.findIndex(r => r.id === editingId);
+      if (i === -1) { toast("السجل غير موجود.", true); return; }
+      const old = records[i];
+      records[i] = { id: editingId, ...vals };
+      if (!persist()) { records[i] = old; return; }
+      toast("تم تعديل بيانات الطالب بنجاح!");
+      renderList();
+      startEdit(editingId, true);
+    }
+  }
+
+  // ---------- قائمة السجلات ----------
+  const fullName = r => [r.first_name, r.father_name, r.grandfather_name, r.great_grandfather_name, r.surname].filter(Boolean).join(" ");
+
+  function filteredRows() {
+    const q = $("#search").value.trim().toLowerCase();
+    return records
+      .filter(r => !q || [fullName(r), r.phone, r.stat_no, r.national_id_no].some(v => (v || "").toLowerCase().includes(q)))
+      .sort((a, b) => b.id - a.id);
+  }
+
+  function renderList() {
+    const rows = filteredRows();
+    const q = $("#search").value.trim();
+
+    const tbody = $("#rows");
+    tbody.textContent = "";
+    rows.forEach(r => {
+      const tr = document.createElement("tr");
+      const cell = (txt, cls) => { const td = document.createElement("td"); td.textContent = txt || ""; if (cls) td.className = cls; return td; };
+      const nameTd = cell(fullName(r), "name-link");
+      nameTd.title = T("اضغط لتعديل البيانات");
+      nameTd.addEventListener("click", () => startEdit(r.id));
+      tr.append(cell(r.id), nameTd, cell(r.grade), cell(r.section), cell(r.phone, "ltr"));
+
+      const act = document.createElement("td");
+      const mk = (txt, cls, fn) => {
+        const b = document.createElement("button");
+        b.className = "btn small " + cls; b.textContent = txt; b.style.marginInlineStart = "6px";
+        b.addEventListener("click", fn); return b;
+      };
+      act.append(
+        mk(T("معاينة"), "ghost", () => openPreview(r.id)),
+        mk(T("تعديل"), "ghost", () => startEdit(r.id)),
+        mk(T("استمارة"), "ghost", () => printForms([r], `استمارة ${fullName(r)}`)),
+        mk(T("حذف"), "danger", () => remove(r.id))
+      );
+      tr.appendChild(act);
+      tbody.appendChild(tr);
+    });
+
+    $("#emptyMsg").hidden = rows.length > 0;
+    $("#countLabel").textContent = lang === "ku"
+      ? (q ? `${rows.length} لە ${records.length}` : `${records.length} تۆمار`)
+      : (q ? `${rows.length} من ${records.length}` : `${records.length} سجل`);
+    $("#navCount").textContent = records.length;
+  }
+
+  function startEdit(id, stay) {
+    const r = records.find(x => x.id === id);
+    if (!r) return;
+    ALL_FIELDS.forEach(fl => { inputs[fl.key].value = fl.key === "birth_date" ? normDate(r[fl.key]) : (r[fl.key] || ""); inputs[fl.key].classList.remove("invalid"); });
+    editingId = id;
+    photoData = r.photo || ""; renderPhoto();
+    setSaveBtn(true);
+    setBanner(r);
+    if (!stay) switchTab("form");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function remove(id) {
+    const r = records.find(x => x.id === id);
+    if (!r || !confirm(lang === "ku" ? `دەتەوێت تۆماری قوتابی «${fullName(r)}» بە تەواوی بسڕیتەوە؟` : `هل تريد حذف سجل الطالب «${fullName(r)}» نهائياً؟`)) return;
+    const before = records;
+    records = records.filter(x => x.id !== id);
+    if (!persist()) { records = before; return; }
+    if (editingId === id) resetForm();
+    renderList();
+    toast("تم الحذف.");
+  }
+
+  // ---------- الاستمارة المطبوعة (على شكل الاستمارة الورقية) ----------
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, ch =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+  const fmtDate = v => normDate(v);
+
+  function formPage(r) {
+    const c = (cls, inner, span) =>
+      `<div class="c ${cls}"${span ? ` style="grid-column:span ${span}"` : ""}>${inner}</div>`;
+    const L = (t, req, span) => c("lab", esc(t) + (req ? '<span class="st">*</span>' : ""), span);
+    const V = (key, span, ltr) => c("val" + (ltr ? " ltr" : ""), key === "birth_date" ? esc(fmtDate(r[key])) : esc(key ? r[key] : ""), span);
+    const FIX = t => c("fix", esc(t));
+    const O = (t, on) => c("opt", `<span>${esc(t)}</span><i class="ring${on ? " on" : ""}">${on ? "✓" : ""}</i>`);
+    const S = (t, cls) => `<div class="r" style="grid-template-columns:1fr">${c("sec " + (cls || ""), esc(t))}</div>`;
+    const R = (cols, ...cells) => `<div class="r" style="grid-template-columns:${cols}">${cells.join("")}</div>`;
+
+    const lv = r.living_level, sw = r.social_welfare;
+
+    const idBlock = (p, title, detailsTitle, natReq) => [
+      S(title),
+      R("15fr 32fr 17fr 36fr",
+        L("نوع الهوية", 1), FIX("هوية الأحوال المدنية"), L("بلد الإصدار", 1), V(p + "id_country")),
+      S(detailsTitle, "subsec"),
+      R("31fr 16fr 16fr 37fr",
+        L("رقم جهة الأحوال المدنية", 1), L("رقم السجل", 1), L("رقم الصحيفة", 1), L("جهة الإصدار"),
+        V(p + "id_civil_no", 0, 1), V(p + "id_record_no", 0, 1), V(p + "id_page_no", 0, 1), V(p + "id_issuer")),
+      R("15fr 32fr 17fr 36fr",
+        L("نوع الهوية", 1), FIX("البطاقة الوطنية الموحدة"), L("بلد الإصدار", 1), L("رقم البطاقة الوطنية الموحده", natReq),
+        V(null, 2), V(p + "national_id_country"), V(p + "national_id_no", 0, 1)),
+    ].join("");
+
+    // اسم الحقل للأب: father_id_country / father_national_id_country ... وللطالب: id_country / national_id_country
+    const studentId = idBlock("", "وثيقة التعريف", "تفاصيل جهة الأحوال المدنية", false);
+    const fatherId = idBlock("father_", "وثيقة التعريف  /  هوية الاب", "تفاصيل جهة الأحوال المدنية - إسم الأب", true);
+
+    return `<div class="page">
+      <div class="frm">
+        <div class="r" style="grid-template-columns:82fr 18fr">
+          <div>
+            <div class="r" style="grid-template-columns:1fr">${c("title", "استمارة معلومات الطلاب لنظام Emis")}</div>
+            <div class="r" style="grid-template-columns:1fr">${c("sec", "اسم الطالب الرباعي واللقب")}</div>
+            ${R("15fr 16fr 16fr 17fr 36fr",
+              L("الاسم", 1), L("إسم الأب", 1), L("اسم والد الأب", 1), L("اسم جد الأب", 1), L("اللقب", 1),
+              V("first_name"), V("father_name"), V("grandfather_name"), V("great_grandfather_name"), V("surname"))}
+            ${R("15fr 16fr 16fr 28fr 25fr",
+              L("إسم الأم", 1), L("اسم والد الأم", 1), L("اسم جد الأم", 1), L("تاريخ التولّد", 1), L("دولة محل الولادة"),
+              V("mother_first_name"), V("mother_father_name"), V("mother_grandfather_name"), V("birth_date", 0, 1), V("birth_country"))}
+          </div>
+          ${c("photo", r.photo ? `<img src="${esc(r.photo)}" alt="">` : '<div class="pbox">صورة</div>')}
+        </div>
+        ${studentId}
+        ${fatherId}
+        ${R("47fr 16fr 18fr 18fr",
+          L("الرقم الاحصائي"), L("الجنس"), L("الجنسية"), L("مسقط الراس"),
+          V("stat_no", 0, 1), V("gender"), V("nationality"), V("birth_place"))}
+        ${R("15fr 16fr 16fr 53fr",
+          L("اللغة الأم"), L("فئة الدم"), L("الديانة"), L("رقم الهاتف"),
+          V("mother_language"), V("blood_type", 0, 1), V("religion"), V("phone", 0, 1))}
+        ${R("29fr 71fr", L("الاحتياجات الخاصة، إن وجدت"), V("special_needs"))}
+        ${R("15fr 32fr 35fr 18fr",
+          L("لغة الدراسة:", 1),
+          c("lab", 'المستوى المعيشي<span class="st">*</span> علامة √'),
+          O("طبقة تحت خط الفقر", lv === "طبقة تحت خط الفقر"),
+          O("الطبقة الفقيرة", lv === "الطبقة الفقيرة"))}
+        ${R("15fr 16fr 16fr 53fr",
+          V("study_language"), O("الطبقة الوسطى", lv === "الطبقة الوسطى"), O("الطبقة العليا", lv === "الطبقة العليا"), V(null))}
+        ${R("34fr 15fr 15fr 18fr 18fr",
+          c("lab", 'مشمول بمنحة الرعاية الاجتماعية؟<span class="st">*</span> √'),
+          O("نعم", sw === "نعم"), O("لا", sw === "لا"), L("الصف الدراسي"), V("grade"))}
+        ${R("64fr 18fr 18fr", V(null), L("الشعبة"), V("section"))}
+        ${R("30fr 16fr 16fr 19fr 19fr",
+          L("المكان"), L("المدينة او القرية"), L("الحي"), L("المحلة"), L("الزقاق"),
+          V("location"), V("city_village"), V("district"), V("subdistrict_neighborhood"), V("alley"))}
+        ${R("30fr 32fr 38fr",
+          L("العنوان"), L("اقرب نقطة دالة"), L("البريد الالكتروني"),
+          V("address"), V("nearest_landmark"), V("email", 0, 1))}
+      </div>
+    </div>`;
+  }
+
+  function printForms(list, title) {
+    if (!list.length) { toast("لا توجد سجلات للطباعة.", true); return; }
+    const area = $("#printArea");
+    area.innerHTML = list.map(formPage).join("");
+    const oldTitle = document.title;
+    document.title = title;
+    const done = () => {
+      area.innerHTML = "";
+      document.title = oldTitle;
+      window.removeEventListener("afterprint", done);
+    };
+    window.addEventListener("afterprint", done);
+    window.print();
+  }
+
+  // ---------- المعاينة ----------
+  function closePreview() { const m = $("#preview"); if (m) m.remove(); document.body.style.overflow = ""; }
+  function openPreview(id) {
+    const r = records.find(x => x.id === id); if (!r) return;
+    closePreview();
+    const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
+    const ov = el("div", "pv-overlay"); ov.id = "preview";
+    ov.addEventListener("click", e => { if (e.target === ov) closePreview(); });
+    const box = el("div", "pv-box");
+    const head = el("div", "pv-head");
+    if (r.photo) { const pi = el("img", "pv-photo"); pi.src = r.photo; pi.alt = ""; head.append(pi); }
+    head.append(el("h2", "", fullName(r) || T("طالب")), el("span", "pv-no", (lang === "ku" ? "ژمارەی تۆمار: " : "رقم السجل: ") + r.id));
+    const body = el("div", "pv-body");
+    SECTIONS.forEach(sec => {
+      const wrap = el("div", "pv-sec");
+      wrap.append(el("h3", "", T(sec.title)));
+      const grid = el("div", "pv-grid");
+      sec.fields.forEach(fl => {
+        if (fl.heading !== undefined) { grid.append(el("div", "pv-sub", T(fl.heading))); return; }
+        const item = el("div", "pv-item");
+        const v = fl.key === "birth_date" ? normDate(r[fl.key]) : (r[fl.key] || "").trim();
+        item.append(el("span", "pv-k", T(fl.label)), el("span", "pv-v" + (v ? "" : " empty"), v || "—"));
+        grid.append(item);
+      });
+      wrap.append(grid); body.append(wrap);
+    });
+    const foot = el("div", "pv-foot");
+    const mk = (txt, cls, fn) => { const b = el("button", "btn small " + cls, txt); b.type = "button"; b.addEventListener("click", fn); return b; };
+    foot.append(
+      mk(T("تعديل"), "ghost", () => { closePreview(); startEdit(r.id); }),
+      mk(T("استمارة"), "ghost", () => printForms([r], `استمارة ${fullName(r)}`)),
+      mk(T("إغلاق"), "", closePreview)
+    );
+    box.append(head, body, foot); ov.append(box);
+    document.body.append(ov); document.body.style.overflow = "hidden";
+  }
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closePreview(); });
+
+  // ---------- واجهة ----------
+  function switchTab(name) {
+    document.querySelectorAll("nav button[data-tab]").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+    $("#panel-form").classList.toggle("active", name === "form");
+    $("#panel-list").classList.toggle("active", name === "list");
+    if (name === "list") renderList();
+  }
+
+  let toastTimer;
+  function toast(msg, isErr) {
+    const t = $("#toast");
+    t.textContent = T(msg);
+    t.className = "show" + (isErr ? " err" : "");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.className = ""; }, 2600);
+  }
+
+  // ---------- تبديل اللغة ----------
+  function applyLang() {
+    document.documentElement.lang = lang === "ku" ? "ckb" : "ar";
+    document.querySelectorAll("[data-ar]").forEach(e => { e.textContent = T(e.dataset.ar); });
+    $("#search").placeholder = T("بحث بالاسم أو الهاتف أو الرقم الإحصائي أو رقم البطاقة...");
+    $("#btnLang").textContent = lang === "ku" ? "العربية" : "کوردی";
+    closePreview();
+    renderPhoto();
+    renderList();
+    if (editingId !== null) { const r = records.find(x => x.id === editingId); if (r) setBanner(r); }
+  }
+
+  // ---------- تشغيل ----------
+  buildForm();
+  ["header h1", "#tab-form", "#tabListLabel", "#btnPrintForm", "#btnNew", ".note", "#btnPrintAll", "#emptyMsg", "thead th"]
+    .forEach(sel => document.querySelectorAll(sel).forEach(e => { e.dataset.ar = e.textContent.trim(); }));
+  applyLang();
+
+  $("#btnLang").addEventListener("click", () => {
+    lang = lang === "ku" ? "ar" : "ku";
+    try { localStorage.setItem(LANG_KEY, lang); } catch (e) {}
+    applyLang();
+  });
+  document.querySelectorAll("nav button[data-tab]").forEach(b => b.addEventListener("click", () => switchTab(b.dataset.tab)));
+  $("#btnSave").addEventListener("click", save);
+  $("#btnNew").addEventListener("click", resetForm);
+  $("#btnPrintForm").addEventListener("click", () => {
+    const rec = { id: editingId, ...collect() };
+    printForms([rec], `استمارة ${fullName(rec) || "طالب"}`);
+  });
+  $("#btnPrintAll").addEventListener("click", () => {
+    const rows = filteredRows().slice().reverse();   // بترتيب الإدخال
+    printForms(rows, `استمارات الطلاب (${rows.length})`);
+  });
+  form.addEventListener("submit", e => { e.preventDefault(); save(); });
+  $("#search").addEventListener("input", renderList);
+})();
+</script>
+</body>
+</html>
