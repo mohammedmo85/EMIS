@@ -188,6 +188,7 @@
       <button type="button" class="btn" id="btnSave">حفظ البيانات</button>
       <button type="button" class="btn ghost" id="btnPrintForm">طباعة الاستمارة (PDF)</button>
       <button type="button" class="btn ghost" id="btnNew">سجل جديد / مسح الحقول</button>
+      <button type="button" class="btn danger" id="btnDelete" data-ar="حذف السجل" hidden>حذف السجل</button>
     </div>
     <p class="note">تُحفظ البيانات داخل متصفح Chrome على هذا الجهاز فقط. خذ نسخة احتياطية دورية من تبويب «السجلات». لحفظ الاستمارة كملف PDF اختر «حفظ بتنسيق PDF» في نافذة الطباعة.</p>
   </section>
@@ -248,6 +249,8 @@
     "تعديل": "دەستکاری",
     "استمارة": "فۆڕم",
     "حذف": "سڕینەوە",
+    "حذف السجل": "سڕینەوەی تۆمار",
+    "تم حفظ الطالب كسجل جديد باسمه الجديد (السجل القديم بقي كما هو).": "قوتابی وەک تۆماری نوێ بە ناوە نوێیەکەی پاشەکەوت کرا (تۆماری کۆن وەک خۆی ماوەتەوە).",
     "إغلاق": "داخستن",
     "طالب": "قوتابی",
     "اضغط لتعديل البيانات": "کلیک بکە بۆ دەستکاریکردنی زانیاری",
@@ -346,7 +349,7 @@
       f("mother_first_name", "إسم الأم"),
       f("mother_father_name", "اسم والد الأم"),
       f("mother_grandfather_name", "اسم جد الأم"),
-      f("birth_date", "تاريخ التولّد", "text", { ltr: true, placeholder: "2017-05-24" }),
+      f("birth_date", "تاريخ التولّد", "text", { ltr: true, datepick: true, placeholder: "2017-05-24" }),
       f("birth_country", "دولة محل الولادة", "text", { def: "العراق" }),
     ]},
     { title: "2. وثيقة التعريف الخاصة بالطالب", fields: [
@@ -518,13 +521,28 @@
           if (fl.ltr) el.classList.add("ltr");
           if (fl.type === "tel") el.inputMode = "tel";
           if (fl.placeholder) el.placeholder = fl.placeholder;
-          if (fl.key === "birth_date") el.addEventListener("blur", () => { el.value = normDate(el.value); });
+          if (fl.datepick) {
+            // الحقل يعرض التاريخ دائماً بصيغة 2017-05-24، والتقويم يُفتح عبر حقل تاريخ مخفي
+            el.readOnly = true; el.inputMode = "none"; el.style.cursor = "pointer";
+            const pk = document.createElement("input");
+            pk.type = "date"; pk.tabIndex = -1; pk.setAttribute("aria-hidden", "true");
+            pk.max = new Date().toISOString().slice(0, 10);
+            pk.style.cssText = "position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;bottom:0;left:0;";
+            el._pk = pk;
+            el.addEventListener("click", () => {
+              pk.value = normDate(el.value) || "";
+              try { pk.showPicker(); } catch (e) { el.readOnly = false; el.focus(); }
+            });
+            pk.addEventListener("change", () => { el.value = normDate(pk.value); el.classList.remove("invalid"); });
+            el.addEventListener("blur", () => { el.value = normDate(el.value); });
+          }
         }
         el.id = id; el.name = fl.key;
         el.addEventListener("input", () => el.classList.remove("invalid"));
         inputs[fl.key] = el;
 
         wrap.append(lab, el);
+        if (el._pk) { wrap.style.position = "relative"; wrap.appendChild(el._pk); }
         grid.appendChild(wrap);
       });
 
@@ -538,6 +556,7 @@
     const b = $("#btnSave");
     b.dataset.ar = editing ? "حفظ التعديلات" : "حفظ البيانات";
     b.textContent = T(b.dataset.ar);
+    $("#btnDelete").hidden = !editing;
   }
   function setBanner(r) {
     const b = $("#editBanner");
@@ -596,6 +615,15 @@
       const i = records.findIndex(r => r.id === editingId);
       if (i === -1) { toast("السجل غير موجود.", true); return; }
       const old = records[i];
+      // إذا تغيّر الاسم: يُحفظ كسجل جديد باسمه الجديد ويبقى السجل القديم كما هو
+      if (fullName(vals) !== fullName(old)) {
+        records.push({ id: nextId(), ...vals });
+        if (!persist()) { records.pop(); return; }
+        toast("تم حفظ الطالب كسجل جديد باسمه الجديد (السجل القديم بقي كما هو).");
+        renderList();
+        startEdit(records[records.length - 1].id, true);
+        return;
+      }
       records[i] = { id: editingId, ...vals };
       if (!persist()) { records[i] = old; return; }
       toast("تم تعديل بيانات الطالب بنجاح!");
@@ -849,6 +877,7 @@
   document.querySelectorAll("nav button[data-tab]").forEach(b => b.addEventListener("click", () => switchTab(b.dataset.tab)));
   $("#btnSave").addEventListener("click", save);
   $("#btnNew").addEventListener("click", resetForm);
+  $("#btnDelete").addEventListener("click", () => { if (editingId !== null) remove(editingId); });
   $("#btnPrintForm").addEventListener("click", () => {
     const rec = { id: editingId, ...collect() };
     printForms([rec], `استمارة ${fullName(rec) || "طالب"}`);
